@@ -1,32 +1,38 @@
 // src/app/register/[code]/page.tsx
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-import type { Metadata } from 'next';
-import { headers } from 'next/headers';
-import { createAdminClient } from '@/lib/supabase/admin';
-import QRCode from 'qrcode';
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import QRCode from "qrcode";
+import Image from "next/image";
 
-type Token = { code: string; points: number; expires_at: string; claimed_at: string | null };
+type Token = {
+  code: string;
+  points: number;
+  expires_at: string;
+  claimed_at: string | null;
+};
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: 'Scan to earn points' };
+  return { title: "Scan to earn points" };
 }
 
 async function getToken(code: string) {
   const admin = createAdminClient();
   const { data } = await admin
-    .from('earn_tokens')
-    .select('code, points, expires_at, claimed_at')
-    .eq('code', code)
+    .from("earn_tokens")
+    .select("code, points, expires_at, claimed_at")
+    .eq("code", code)
     .maybeSingle<Token>();
   return data ?? null;
 }
 
 function baseFromHeaders(h: Headers) {
-  const host = h.get('host') ?? 'localhost:3000';
-  const proto = host.includes('localhost') || host.startsWith('127.') ? 'http' : 'https';
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = host.includes("localhost") || host.startsWith("127.") ? "http" : "https";
   return `${proto}://${host}`;
 }
 
@@ -37,15 +43,17 @@ export default async function QRPage({ params }: { params: { code: string } }) {
   const h = headers();
 
   // Prefer configured public URL; fallback to request host
-  const configured = process.env.NEXT_PUBLIC_PUBLIC_URL?.replace(/\/$/, '');
+  const configured = process.env.NEXT_PUBLIC_PUBLIC_URL?.replace(/\/$/, "");
   const base = configured || baseFromHeaders(h);
   const claimUrl = new URL(`/claim?code=${encodeURIComponent(token.code)}`, base).toString();
 
+  // Generate QR as a data URL
   const qrDataUrl = await QRCode.toDataURL(claimUrl);
 
+  // Countdown initial value
   const endMs = new Date(token.expires_at).getTime();
   const initialLeftMs = Math.max(0, endMs - Date.now());
-  const merchantName = process.env.MERCHANT_NAME || 'Member';
+  const merchantName = process.env.MERCHANT_NAME || "Member";
 
   return (
     <main className="mx-auto max-w-md p-6 space-y-6">
@@ -55,7 +63,15 @@ export default async function QRPage({ params }: { params: { code: string } }) {
       </p>
 
       <div className="rounded-xl border bg-white p-6 shadow-sm text-center">
-        <img src={qrDataUrl} alt="Claim QR" className="mx-auto w-56 h-56" />
+        {/* Use next/image for better LCP; data URLs are supported */}
+        <Image
+          src={qrDataUrl}
+          alt="Claim QR"
+          width={224}
+          height={224}
+          className="mx-auto w-56 h-56"
+          priority
+        />
         <div
           id="countdown"
           className="mt-3 text-sm text-slate-600"
@@ -67,6 +83,7 @@ export default async function QRPage({ params }: { params: { code: string } }) {
         </div>
       </div>
 
+      {/* Client-side countdown + polling */}
       <script
         dangerouslySetInnerHTML={{
           __html: `
@@ -93,7 +110,7 @@ export default async function QRPage({ params }: { params: { code: string } }) {
     requestAnimationFrame(tick);
   }
   poll(); tick();
-})();`
+})();`,
         }}
       />
     </main>

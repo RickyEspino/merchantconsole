@@ -1,19 +1,21 @@
-'use client';
+// src/app/register/page.tsx
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+
 const PPD = Number(process.env.NEXT_PUBLIC_POINTS_PER_DOLLAR ?? 10);
 
 export default function RegisterPage() {
-  const [amount, setAmount] = useState<string>('');
-  const [reason, setReason] = useState<string>('');
+  const [amount, setAmount] = useState<string>("");
+  const [reason, setReason] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // if we came back from QR page, clear fields
+    // If we came back from QR page, keep prior input only when ?last=1 is present.
     const params = new URLSearchParams(window.location.search);
-    if (!params.get('last')) {
-      setAmount('');
-      setReason('');
+    if (!params.get("last")) {
+      setAmount("");
+      setReason("");
     }
   }, []);
 
@@ -22,17 +24,21 @@ export default function RegisterPage() {
 
   async function handleNext() {
     setSubmitting(true);
-    const res = await fetch('/api/register/session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amountCents: Math.round(dollars * 100), points, reason }),
+    const res = await fetch("/api/register/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amountCents: Math.round(dollars * 100),
+        points,
+        reason,
+      }),
     });
     const data = await res.json();
     setSubmitting(false);
-    if (data.code) {
+    if (data?.code) {
       window.location.href = `/register/${data.code}`;
     } else {
-      alert(data.error ?? 'Failed to start session');
+      alert(data?.error ?? "Failed to start session");
     }
   }
 
@@ -54,7 +60,8 @@ export default function RegisterPage() {
 
         <div className="text-sm text-slate-600">Conversion</div>
         <div className="rounded-md bg-slate-50 p-3 text-sm">
-          {dollars > 0 ? `${dollars.toFixed(2)} × ${PPD} = ` : ''}<b className="text-lg">{points}</b> points
+          {dollars > 0 ? `${dollars.toFixed(2)} × ${PPD} = ` : ""}
+          <b className="text-lg">{points}</b> points
         </div>
 
         <label className="block">
@@ -72,7 +79,7 @@ export default function RegisterPage() {
           disabled={submitting || points <= 0}
           className="w-full rounded-md bg-black text-white py-2 font-medium hover:opacity-90"
         >
-          {submitting ? 'Preparing…' : 'Next → QR'}
+          {submitting ? "Preparing…" : "Next → QR"}
         </button>
       </div>
     </main>
