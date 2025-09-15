@@ -30,7 +30,8 @@ async function getToken(code: string) {
   return data ?? null;
 }
 
-function baseFromHeaders(h: Headers) {
+// Accept both Headers and ReadonlyHeaders (Next.js returns ReadonlyHeaders)
+function baseFromHeaders(h: Headers | ReadonlyHeaders) {
   const host = h.get("host") ?? "localhost:3000";
   const proto = host.includes("localhost") || host.startsWith("127.") ? "http" : "https";
   return `${proto}://${host}`;
@@ -40,7 +41,7 @@ export default async function QRPage({ params }: { params: { code: string } }) {
   const token = await getToken(params.code);
   if (!token) return <main className="p-6">Token not found.</main>;
 
-  const h = headers();
+  const h = headers(); // ✅ no await; returns ReadonlyHeaders
 
   // Prefer configured public URL; fallback to request host
   const configured = process.env.NEXT_PUBLIC_PUBLIC_URL?.replace(/\/$/, "");
