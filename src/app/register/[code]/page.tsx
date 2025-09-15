@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import QRCode from "qrcode";
 import Image from "next/image";
@@ -30,23 +29,19 @@ async function getToken(code: string) {
   return data ?? null;
 }
 
-// Works for both Headers and Next's ReadonlyHeaders
-function baseFromHeaders(h: ReturnType<typeof headers>) {
-  const host = h.get("host") ?? "localhost:3000";
-  const proto = host.includes("localhost") || host.startsWith("127.") ? "http" : "https";
-  return `${proto}://${host}`;
-}
+// Hard default to the real console domain; allow override via env for previews
+const PUBLIC_BASE =
+  (process.env.NEXT_PUBLIC_PUBLIC_URL?.replace(/\/$/, "") as string | undefined) ||
+  "https://merchantconsole.beachlifeapp.com";
 
 export default async function QRPage({ params }: { params: { code: string } }) {
   const token = await getToken(params.code);
   if (!token) return <main className="p-6">Token not found.</main>;
 
-  const h = headers(); // sync in Next 15
-
-  // Prefer configured public URL; fallback to request host
-  const configured = process.env.NEXT_PUBLIC_PUBLIC_URL?.replace(/\/$/, "");
-  const base = configured || baseFromHeaders(h);
-  const claimUrl = new URL(`/claim?code=${encodeURIComponent(token.code)}`, base).toString();
+  const claimUrl = new URL(
+    `/claim?code=${encodeURIComponent(token.code)}`,
+    PUBLIC_BASE
+  ).toString();
 
   // Generate QR as a data URL
   const qrDataUrl = await QRCode.toDataURL(claimUrl);
