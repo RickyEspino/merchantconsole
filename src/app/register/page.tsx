@@ -1,4 +1,3 @@
-// src/app/register/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -11,7 +10,6 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // If we came back from QR page, keep prior input only when ?last=1 is present.
     const params = new URLSearchParams(window.location.search);
     if (!params.get("last")) {
       setAmount("");

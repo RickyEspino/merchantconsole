@@ -1,10 +1,10 @@
-// src/app/register/[code]/page.tsx
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import type { Metadata } from "next";
-import { createAdminClient } from "../../../lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireMerchant } from "@/lib/merchant";
 import QRCode from "qrcode";
 import Image from "next/image";
 
@@ -29,57 +29,35 @@ async function getToken(code: string) {
   return data ?? null;
 }
 
-// Hard default to the real console domain; allow override via env for previews
 const PUBLIC_BASE =
   (process.env.NEXT_PUBLIC_PUBLIC_URL?.replace(/\/$/, "") as string | undefined) ||
   "https://merchantconsole.beachlifeapp.com";
 
 export default async function QRPage({ params }: { params: { code: string } }) {
+  const merchant = await requireMerchant();
   const token = await getToken(params.code);
   if (!token) return <main className="p-6">Token not found.</main>;
 
-  const claimUrl = new URL(
-    `/claim?code=${encodeURIComponent(token.code)}`,
-    PUBLIC_BASE
-  ).toString();
-
-  // Generate QR as a data URL
+  const claimUrl = new URL(`/claim?code=${encodeURIComponent(token.code)}`, PUBLIC_BASE).toString();
   const qrDataUrl = await QRCode.toDataURL(claimUrl);
 
-  // Countdown initial value
   const endMs = new Date(token.expires_at).getTime();
   const initialLeftMs = Math.max(0, endMs - Date.now());
-  const merchantName = process.env.MERCHANT_NAME || "Member";
 
   return (
     <main className="mx-auto max-w-md p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">{merchantName}</h1>
+      <h1 className="text-2xl font-semibold">{merchant.name}</h1>
       <p className="text-slate-600">
         Have the customer scan to claim <b>{token.points}</b> points.
       </p>
 
       <div className="rounded-xl border bg-white p-6 shadow-sm text-center">
-        {/* Use next/image for better LCP; data URLs are supported */}
-        <Image
-          src={qrDataUrl}
-          alt="Claim QR"
-          width={224}
-          height={224}
-          className="mx-auto w-56 h-56"
-          priority
-        />
-        <div
-          id="countdown"
-          className="mt-3 text-sm text-slate-600"
-          data-left-ms={initialLeftMs}
-          data-code={token.code}
-          suppressHydrationWarning
-        >
+        <Image src={qrDataUrl} alt="Claim QR" width={224} height={224} className="mx-auto w-56 h-56" priority />
+        <div id="countdown" className="mt-3 text-sm text-slate-600" data-left-ms={initialLeftMs} data-code={token.code} suppressHydrationWarning>
           2:00
         </div>
       </div>
 
-      {/* Client-side countdown + polling */}
       <script
         dangerouslySetInnerHTML={{
           __html: `
