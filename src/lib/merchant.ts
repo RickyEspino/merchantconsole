@@ -10,12 +10,12 @@ export type Merchant = {
   tenant_id: string | null;
 };
 
-/**
- * Read the merchant slug injected by middleware from the current request headers.
- * We cast the type to avoid the Promise<ReadonlyHeaders> inference issue.
- */
+export type Tenant = {
+  id: string;
+  slug: string;
+};
+
 export function getMerchantSlugFromHeaders(): string | null {
-  // Cast to an object that has a .get() method
   const h = headers() as unknown as { get(name: string): string | null };
   const slug = h.get("x-merchant-slug");
   return slug && slug.trim().length > 0 ? slug : null;
@@ -29,6 +29,38 @@ export async function getMerchantBySlug(slug: string): Promise<Merchant | null> 
     .eq("slug", slug)
     .maybeSingle<Merchant>();
   return data ?? null;
+}
+
+export async function getTenantSlugById(id: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("tenants")
+    .select("slug")
+    .eq("id", id)
+    .maybeSingle<{ slug: string }>();
+  return data?.slug ?? null;
+}
+
+/**
+ * Resolve the correct base URL for the USER APP (where claims happen) for a given merchant.
+ * Priority:
+ * 1) If NEXT_PUBLIC_USER_APP_BASE is set, use it (handy for previews).
+ * 2) If merchant has tenant_id and we can fetch its slug, use https://{slug}.beachlifeapp.com
+ * 3) Fallback to DEFAULT_TENANT_SLUG (env) or 'beach' → https://beach.beachlifeapp.com
+ */
+export async function resolveUserClaimBaseForMerchant(merchant: Merchant): Promise<string> {
+  const forced = process.env.NEXT_PUBLIC_USER_APP_BASE?.replace(/\/$/, "");
+  if (forced) return forced;
+
+  const fallbackTenant = (process.env.DEFAULT_TENANT_SLUG ?? "beach").trim();
+  let tenantSlug = fallbackTenant;
+
+  if (merchant.tenant_id) {
+    const t = await getTenantSlugById(merchant.tenant_id);
+    if (t && t.length > 0) tenantSlug = t;
+  }
+
+  return `https://${tenantSlug}.beachlifeapp.com`;
 }
 
 /** Throws with a clear message if the merchant cannot be resolved. */
